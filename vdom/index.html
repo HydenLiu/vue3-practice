@@ -1,0 +1,66 @@
+<div id="app"></div>
+
+<script>
+  // h 函数
+  function h (tag, props, children) {
+    return { tag, props, children };
+  }
+
+  // 挂载函数
+  function mount (vnode, container) {
+    const el = vnode.el = document.createElement(vnode.tag)
+    // props
+    if (vnode.props) {
+      for (let key in vnode.props) {
+        const value = vnode.props[key]
+        container.setAttribute(key, value)
+      }
+    }
+
+    // children
+    if (vnode.children) {
+      if (typeof vnode.children === 'string') {
+        el.textContent = vnode.children
+      } else {
+        vnode.children.forEach(child => {
+          // 递归子节点
+          mount(child, el)
+        })
+      }
+    }
+
+    container.appendChild(el)
+  }
+
+  // 虚拟节点1
+  const vdom = h('div', { class: 'red' }, [
+    h('span', null, 'hello')
+  ])
+
+  mount(vdom, document.getElementById('app'))
+
+  // 更新函数（补丁函数）
+  function patch(oldVnode, newVnode){
+
+  }
+
+  // 虚拟节点2
+  const vdom2 = h('div', { class: 'yellow' }, [
+    h('span', null, 'change')
+  ])
+
+  // 2秒后更新
+  setTimeout(() => {
+    patch(vdom, vdom2)
+  }, 2000)
+</script>
+
+<style>
+  .red {
+    color: red;
+  }
+  .yellow {
+    color: yellow;
+  }
+
+</style>
