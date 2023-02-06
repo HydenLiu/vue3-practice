@@ -40,12 +40,76 @@
   mount(vdom, document.getElementById('app'))
 
   // 更新函数（补丁函数）
-  function patch(oldVnode, newVnode){
+  function patch (n1, n2) {
+    if (n1.tag === n2.tag) {
+      const el = n2.el = n1.el
+      // props
+      const oldProps = n1.props || {}
+      const newProps = n2.props || {}
 
+      // 如果新的属性不在旧的属性中，需要添加
+      for (let key in newProps) {
+        const oldValue = oldProps[key]
+        const newValue = newProps[key]
+        if (oldProps !== newValue) {
+          el.setAttribute(key, newValue)
+        }
+      }
+
+      // 如果旧的属性不在新的属性中，需要删除
+      for (let key in oldProps) {
+        if (!(key in newProps)) {
+          el.removeAttribute(key)
+        }
+      }
+
+      // children
+      const oldChildren = n1.children
+      const newChildren = n2.children
+      if (typeof newChildren === 'string') {
+        if (typeof oldChildren === 'string') {
+          if (oldChildren !== newChildren) {
+            el.textContent = newChildren
+          }
+        } else {
+          el.textContent = newChildren
+        }
+      } else {
+        if (typeof oldChildren === 'string') {
+          el.innerHTML = ''
+          newChildren.forEach(child => {
+            mount(child, el)
+          })
+        } else {
+          // 都是数组的情况, 使用简单的key diff
+          const commonLength = Math.min(oldChildren.length, newChildren.length)
+          for (let i = 0; i < commonLength; i++) {
+            patch(oldChildren[i], newChildren[i])
+          }
+
+          if (newChildren.length > oldChildren.length) {
+            newChildren.slice(oldChildren.length).forEach(child => {
+              mount(child, el)
+            })
+          } else if (newChildren.length < oldChildren.length){
+            oldChildren.slice(newChildren.length).forEach(child => {
+              el.removeChild(child)
+            })
+          }
+        }
+      }
+
+
+    } else {
+      // replace
+      const parent = n1.el.parentNode
+      mount(n2, parent)
+      parent.removeChild(n1.el)
+    }
   }
 
   // 虚拟节点2
-  const vdom2 = h('div', { class: 'yellow' }, [
+  const vdom2 = h('p', { class: 'yellow' }, [
     h('span', null, 'change')
   ])
 
@@ -59,6 +123,7 @@
   .red {
     color: red;
   }
+
   .yellow {
     color: yellow;
   }
