@@ -1,0 +1,18 @@
+<script>
+  class Dep {
+    
+  }
+
+  function watchEffect(effect){
+
+  }
+
+  const dep = new Dep()
+
+  watchEffect(()=>{
+    dep.depend()
+    console.log('effect run')
+  }) // effect run
+
+  dep.notify() // effect run
+</script>
