@@ -1,18 +1,53 @@
 <script>
+  let activeEffect
+
   class Dep {
-    
+    constructor(value) {
+      this.subscribers = new Set()
+      this._value = value
+    }
+
+    get value () {
+      this.depend()
+      return this._value
+    }
+
+    set value (newValue) {
+      this._value = newValue
+      this.notify()
+    }
+
+    // 依赖收集
+    depend () {
+      if (activeEffect) {
+        this.subscribers.add(activeEffect)
+      }
+    }
+
+    // 依赖监听
+    notify () {
+      this.subscribers.forEach(effect => {
+        effect()
+      })
+    }
   }
 
-  function watchEffect(effect){
-
+  function watchEffect (effect) {
+    activeEffect = effect
+    effect()
+    activeEffect = null
   }
 
-  const dep = new Dep()
+  const ok = new Dep(true)
+  const msg = new Dep('hello')
 
-  watchEffect(()=>{
-    dep.depend()
-    console.log('effect run')
-  }) // effect run
+  watchEffect(() => {
+    if(ok.value){
+      console.log(msg.value)
+    } else {
+      console.log('false branch')
+    }
+  })
 
-  dep.notify() // effect run
+  msg.value = 'changed'
 </script>
