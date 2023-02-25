@@ -1,0 +1,202 @@
+<div id="app"></div>
+
+<script>
+  // vdom
+  // h 函数
+  function h (tag, props, children) {
+    return { tag, props, children };
+  }
+
+  // 挂载函数
+  function mount (vnode, container) {
+    const el = vnode.el = document.createElement(vnode.tag)
+    // props
+    if (vnode.props) {
+      for (let key in vnode.props) {
+        const value = vnode.props[key]
+        if (key.startsWith('on')) {
+          el.addEventListener(key.slice(2).toLowerCase(), value)
+        } else {
+          el.setAttribute(key, value)
+        }
+      }
+    }
+
+    // children
+    if (vnode.children) {
+      if (typeof vnode.children === 'string') {
+        el.textContent = vnode.children
+      } else {
+        vnode.children.forEach(child => {
+          // 递归子节点
+          mount(child, el)
+        })
+      }
+    }
+
+    container.appendChild(el)
+  }
+
+  // 更新函数（补丁函数）
+  function patch (n1, n2) {
+    if (n1.tag === n2.tag) {
+      const el = n2.el = n1.el
+      // props
+      const oldProps = n1.props || {}
+      const newProps = n2.props || {}
+
+      // 如果新的属性不在旧的属性中，需要添加
+      for (let key in newProps) {
+        const oldValue = oldProps[key]
+        const newValue = newProps[key]
+        if (oldProps !== newValue) {
+          el.setAttribute(key, newValue)
+        }
+      }
+
+      // 如果旧的属性不在新的属性中，需要删除
+      for (let key in oldProps) {
+        if (!(key in newProps)) {
+          el.removeAttribute(key)
+        }
+      }
+
+      // children
+      const oldChildren = n1.children
+      const newChildren = n2.children
+      if (typeof newChildren === 'string') {
+        if (typeof oldChildren === 'string') {
+          if (oldChildren !== newChildren) {
+            el.textContent = newChildren
+          }
+        } else {
+          el.textContent = newChildren
+        }
+      } else {
+        if (typeof oldChildren === 'string') {
+          el.innerHTML = ''
+          newChildren.forEach(child => {
+            mount(child, el)
+          })
+        } else {
+          // 都是数组的情况, 使用简单的key diff
+          const commonLength = Math.min(oldChildren.length, newChildren.length)
+          for (let i = 0; i < commonLength; i++) {
+            patch(oldChildren[i], newChildren[i])
+          }
+
+          if (newChildren.length > oldChildren.length) {
+            newChildren.slice(oldChildren.length).forEach(child => {
+              mount(child, el)
+            })
+          } else if (newChildren.length < oldChildren.length) {
+            oldChildren.slice(newChildren.length).forEach(child => {
+              el.removeChild(child)
+            })
+          }
+        }
+      }
+
+
+    } else {
+      // replace
+      const parent = n1.el.parentNode
+      mount(n2, parent)
+      parent.removeChild(n1.el)
+    }
+  }
+
+  // reactivity
+  let activeEffect
+
+  class Dep {
+    subscribers = new Set()
+
+    // 依赖收集
+    depend () {
+      if (activeEffect) {
+        this.subscribers.add(activeEffect)
+      }
+    }
+
+    // 依赖监听
+    notify () {
+      this.subscribers.forEach(effect => {
+        effect()
+      })
+    }
+  }
+
+  function watchEffect (effect) {
+    activeEffect = effect
+    effect()
+    activeEffect = null
+  }
+
+  const targetMap = new WeakMap()
+
+  function getDep (target, key) {
+    let depsMap = targetMap.get(target)
+    if (!depsMap) {
+      depsMap = new Map()
+      targetMap.set(target, depsMap)
+    }
+    let dep = depsMap.get(key)
+    if (!dep) {
+      dep = new Dep()
+      depsMap.set(key, dep)
+    }
+    return dep
+  }
+
+  const reactiveHandles = {
+    get (target, key, receiver) {
+      const dep = getDep(target, key)
+      dep.depend()
+      return Reflect.get(target, key, receiver)
+    },
+    set (target, key, value, receiver) {
+      const dep = getDep(target, key)
+      const result = Reflect.set(target, key, value, receiver)
+      dep.notify()
+      return result
+    }
+  }
+
+  function reactive (raw) {
+    return new Proxy(raw, reactiveHandles)
+  }
+
+  const App = {
+    data: reactive({
+      count: 0
+    }),
+    render () {
+      return h('div', null, [
+        h('p', {
+          onclick: () => {
+            this.data.count++
+          }
+        }, `${this.data.count}`)
+      ])
+    }
+  }
+
+  function mountApp (component, container) {
+    let isMounted = false
+    let oldVnode
+    watchEffect(() => {
+      if (!isMounted) {
+        oldVnode = component.render()
+        mount(oldVnode, container)
+        isMounted = true
+      } else {
+        const newVnode = component.render()
+        patch(oldVnode, newVnode)
+        oldVnode = newVnode
+      }
+    })
+  }
+
+  mountApp(App, document.getElementById('app'))
+</script>
